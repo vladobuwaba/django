@@ -1,9 +1,9 @@
 import os
 
 from django import forms
-from django.template import TemplateDoesNotExist
+from django.conf import settings
+from django.template import EngineHandler, TemplateDoesNotExist
 from django.template.backends.django import DjangoTemplates
-from django.template.loader import get_template
 from django.utils._os import upath
 from django.utils.functional import cached_property
 
@@ -53,3 +53,30 @@ class TemplateRenderer(StandaloneTemplateRenderer):
             except TemplateDoesNotExist as e2:
                 e.chain.append(e2)
             raise TemplateDoesNotExist(template_name, chain=e.chain)
+
+
+def get_template(template_name, using=None):
+    """
+    A modified version of django.template.loader.get_template() that adds in
+    the django.forms template directories if needed.
+    """
+    templates = settings.TEMPLATES
+    for i, template in enumerate(templates):
+        backend = template['BACKEND']
+        jinja2_backend = backend == 'django.template.backends.jinja2.Jinja2'
+        dtl_backend = backend == 'django.template.backends.django.DjangoTemplates'
+        if template.get('APP_DIRS') and 'django.forms' not in settings.INSTALLED_APPS:
+            if dtl_backend or jinja2_backend:
+                templates[i].setdefault('DIRS', [])
+                forms_template_dir = os.path.join(ROOT, 'templates' if dtl_backend else 'jinja2')
+                if forms_template_dir not in templates[i]['DIRS']:
+                    templates[i]['DIRS'].append(forms_template_dir)
+                    break
+    engines = EngineHandler(templates=templates)
+    chain = []
+    for engine in engines.all():
+        try:
+            return engine.get_template(template_name)
+        except TemplateDoesNotExist as e:
+            chain.append(e)
+    raise TemplateDoesNotExist(template_name, chain=chain)

@@ -140,8 +140,6 @@ def resolve_url(to, *args, **kwargs):
     if isinstance(to, six.string_types):
         # Handle relative URLs
         if to.startswith(('./', '../')):
-            return to
-
     # Next try a reverse URL resolution.
     try:
         return reverse(to, args=args, kwargs=kwargs)
@@ -154,4 +152,3 @@ def resolve_url(to, *args, **kwargs):
             raise
 
     # Finally, fall back and assume it's a URL
-    return to
